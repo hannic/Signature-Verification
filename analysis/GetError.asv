@@ -1,0 +1,312 @@
+function [far1 frr1 far1_mid frr1_mid threshed_1 far2 frr2 far2_mid frr2_mid threshed_2 same dif1 dif2]=GetError(path,datanumber,err_length,ispca,data_number,roc_type,pca_begin,pca_end)
+if strcmp(ispca,'nopca')&& strcmp(roc_type,'all')
+    cd(path);
+    files=dir('*.txt');
+    same=zeros(1,datanumber-1);
+    dif1=zeros(1,datanumber-1);
+    dif2=zeros(1,datanumber-1);
+    for i=1:size(files,1)
+        temp=importdata(files(i).name);
+        if size(temp.data,2)==data_number+1
+            temp.data(:,1)=[];
+        end
+        for j=1:size(temp.data,1)
+            switch temp.data(j,1)
+                case 1.1
+                    same=[same;temp.data(j,2:datanumber)];
+                case 0.1
+                    dif1=[dif1;temp.data(j,2:datanumber)];
+                case 0.2
+                    dif2=[dif2;temp.data(j,2:datanumber)];
+            end
+        end
+    end
+    
+    same(1,:)=[];
+    dif1(1,:)=[];
+    if size(dif2,1)>1
+        dif2(1,:)=[];
+    end
+    
+    far1=zeros(datanumber-1,err_length);
+    frr1=far1;
+    far2=far1;
+    frr2=far1;
+    far1_mid=zeros(1,datanumber-1);
+    frr1_mid=far1_mid;
+    far2_mid=far1_mid;
+    frr2_mid=far1_mid;
+    for i=1:datanumber-1
+        index=1;
+        lowthresh=mean(same(:,i));
+        highthresh1=mean(dif1(:,i));
+        if size(dif2,1)>1
+            highthresh2=mean(dif2(:,i));
+        end
+        for thresh=lowthresh:(highthresh1-lowthresh)/(err_length-1):highthresh1
+            far1(i,index)=sum(same(:,i)>thresh)/size(same,1);
+            frr1(i,index)=sum(dif1(:,i)<thresh)/size(dif1,1);
+            index=index+1;
+        end
+        
+        index=1;
+        if size(dif2,1)>1
+            for thresh=lowthresh:(highthresh2-lowthresh)/(err_length-1):highthresh2
+                far2(i,index)=sum(same(:,i)>thresh)/size(same,1);
+                frr2(i,index)=sum(dif2(:,i)<thresh)/size(dif2,1);
+                index=index+1;
+            end
+        end
+        
+        index=find(abs(far1(i,:)-frr1(i,:))==min(abs(far1(i,:)-frr1(i,:))));
+        far1_mid(i)=mean(far1(i,index));
+        frr1_mid(i)=mean(frr1(i,index));
+        threshed_1(i)=lowthresh+mean((index-1)*(highthresh1-lowthresh)/(err_length-1));
+        
+        if size(dif2,1)>1
+            index=find(abs(far2(:,i)-frr2(:,i))==min(abs(far2(:,1)-frr2(:,1))));
+            far2_mid(i)=far2(i,index);
+            frr2_mid(i)=frr2(i,index);
+            threshed_2(i)=lowthresh+(index-1)*(highthresh2-lowthresh)/(err_length-1);
+        end
+    end
+elseif strcmp(ispca,'pca')&& strcmp(roc_type,'all')
+    cd(path);
+    files=dir('*.txt');
+    pca_length=pca_end-pca_begin+1;
+    all=zeros(1,pca_length+1);
+    same=zeros(1);
+    dif1=zeros(1);
+    dif2=zeros(1);
+    for i=1:size(files,1)
+        temp=importdata(files(i).name);
+        if size(temp.data,2)==data_number+1
+            temp.data(:,1)=[];
+        end
+        for j=1:size(temp.data,1)
+            all=[all;[temp.data(j,1),temp.data(j,pca_begin:pca_end)]];
+        end
+    end
+    [COEFF,SCORE]=princomp(all(:,2:end));
+    %     temp=repmat(COEFF(:,1)',length(all),1);
+    %     pca=sum(all(:,2:end).*temp,2);
+    pca=SCORE(:,1);
+    
+    
+    
+    %         if(temp.data(j,1)==1.1)
+    for i=1:length(all)
+        switch all(i,1)
+            case 1.1
+                same=[same,pca(i)];
+            case 0.1
+                dif1=[dif1,pca(i)];
+            case 0.2
+                dif2=[dif2,pca(i)];
+        end
+    end
+    
+    same(1)=[];
+    dif1(1)=[];
+    if length(dif2)>1
+        dif2(1)=[];
+    end
+    
+    lowthresh=mean(same);
+    highthresh1=mean(dif1);
+    if length(dif2)>1
+        highthresh2=mean(dif2);
+    end
+    
+    index=1;
+    far1=zeros(1,err_length);
+    frr1=far1;
+    far2=far1;
+    frr2=far1;
+    
+    for thresh=lowthresh:(highthresh1-lowthresh)/(err_length-1):highthresh1
+        far1(index)=sum(same>thresh)/length(same);
+        frr1(index)=sum(dif1<thresh)/length(dif1);
+        index=index+1;
+    end
+    if length(dif2)>1
+        index=1;
+        
+        for thresh=lowthresh:(highthresh2-lowthresh)/(err_length-1):highthresh2
+            far2(index)=sum(same>thresh)/length(same);
+            frr2(index)=sum(dif2<thresh)/length(dif2);
+            index=index+1;
+        end
+    end
+    index=find(abs(far1-frr1)==min(abs(far1-frr1)));
+    threshed_1=lowthresh+(index-1)*(highthresh1-lowthresh)/(err_length-1);
+    far1_mid=mean(far1(index));
+    frr1_mid=mean(frr1(index));
+    if length(dif2)>1
+        index=find(abs(far2-frr2)==min(abs(far2-frr2)));
+        threshed_2=lowthresh+mean((index-1)*(highthresh2-lowthresh)/(err_length-1));
+        far2_mid=far2(index);
+        frr2_mid=frr2(index);
+    end
+elseif  strcmp(ispca,'nopca')&& strcmp(roc_type,'single')
+    cd(path);
+    files=dir('*.txt');
+    
+    
+    far1_mid=zeros(1,datanumber-1);
+    frr1_mid=far1_mid;
+    far2_mid=far1_mid;
+    frr2_mid=far1_mid;
+    
+    for i=1:size(files,1)
+        same=zeros(1,datanumber-1);
+        dif1=zeros(1,datanumber-1);
+        dif2=zeros(1,datanumber-1);
+        temp=importdata(files(i).name);
+        if size(temp.data,2)==data_number+1
+            temp.data(:,1)=[];
+        end
+        for j=1:size(temp.data,1)
+            switch temp.data(j,1)
+                case 1.1
+                    same=[same;temp.data(j,2:datanumber)];
+                case 0.1
+                    dif1=[dif1;temp.data(j,2:datanumber)];
+                case 0.2
+                    dif2=[dif2;temp.data(j,2:datanumber)];
+            end
+        end
+        
+        same(1,:)=[];
+        dif1(1,:)=[];
+        if size(dif2,1)>1
+            dif2(1,:)=[];
+        end
+        far1=zeros(datanumber-1,err_length);
+        frr1=far1;
+        far2=far1;
+        frr2=far1;
+        
+        
+        for i=1:datanumber-1
+            index=1;
+            lowthresh=mean(same(:,i));
+            highthresh1=mean(dif1(:,i));
+            if size(dif2,1)>1
+                highthresh2=mean(dif2(:,i));
+            end
+            
+            
+            for thresh=lowthresh:(highthresh1-lowthresh)/(err_length-1):highthresh1
+                far1(i,index)=sum(same(:,i)>thresh)/size(same,1);
+                frr1(i,index)=sum(dif1(:,i)<thresh)/size(dif1,1);
+                index=index+1;
+            end
+            
+            index=1;
+            if size(dif2,1)>1
+                for thresh=lowthresh:(highthresh2-lowthresh)/(err_length-1):highthresh2
+                    far2(i,index)=sum(same(:,i)>thresh)/size(same,1);
+                    frr2(i,index)=sum(dif2(:,i)<thresh)/size(dif2,1);
+                    index=index+1;
+                end
+            end
+            
+            index=find(abs(far1(i,:)-frr1(i,:))==min(abs(far1(i,:)-frr1(i,:))));
+            far1_mid(i)=far1_mid(i)+mean(far1(i,index))/length(files);
+            frr1_mid(i)=frr1_mid(i)+mean(frr1(i,index))/length(files);
+            %             threshed_1(i)=lowthresh+mean((index-1)*(highthresh1-lowthresh)/(err_length-1));
+            
+            if size(dif2,1)>1
+                index=find(abs(far2(:,i)-frr2(:,i))==min(abs(far2(:,1)-frr2(:,1))));
+                far2_mid(i)=far2_mid(i)+far2(i,index)/length(files);
+                frr2_mid(i)=frr2_mid(i)+frr2(i,index)/length(files);
+                %                 threshed_2(i)=lowthresh+(index-1)*(highthresh2-lowthresh)/(err_length-1);
+            end
+        end
+    end
+elseif strcmp(ispca,'pca')&& strcmp(roc_type,'single')
+    cd(path);
+    files=dir('*.txt');
+    pca_length=pca_end-pca_begin+1;
+
+    for i=1:size(files,1)
+            all=zeros(1,pca_length+1);
+    same=zeros(1);
+    dif1=zeros(1);
+    dif2=zeros(1);
+        temp=importdata(files(i).name);
+        if size(temp.data,2)==data_number+1
+            temp.data(:,1)=[];
+        end
+        for j=1:size(temp.data,1)
+            all=[all;[temp.data(j,1),temp.data(j,pca_begin:pca_end)]];
+        end
+
+    [COEFF,SCORE]=princomp(all(:,2:end));
+    pca=SCORE(:,1);
+    
+    
+    
+    %         if(temp.data(j,1)==1.1)
+    for i=1:length(all)
+        switch all(i,1)
+            case 1.1
+                same=[same,pca(i)];
+            case 0.1
+                dif1=[dif1,pca(i)];
+            case 0.2
+                dif2=[dif2,pca(i)];
+        end
+    end
+    
+    same(1)=[];
+    dif1(1)=[];
+    if length(dif2)>1
+        dif2(1)=[];
+    end
+    
+    lowthresh=mean(same);
+    highthresh1=mean(dif1);
+    if length(dif2)>1
+        highthresh2=mean(dif2);
+    end
+    
+    index=1;
+    far1=zeros(1,err_length);
+    frr1=far1;
+    far2=far1;
+    frr2=far1;
+    
+    for thresh=lowthresh:(highthresh1-lowthresh)/(err_length-1):highthresh1
+        far1(index)=sum(same>thresh)/length(same);
+        frr1(index)=sum(dif1<thresh)/length(dif1);
+        index=index+1;
+    end
+    if length(dif2)>1
+        index=1;
+        
+        for thresh=lowthresh:(highthresh2-lowthresh)/(err_length-1):highthresh2
+            far2(index)=sum(same>thresh)/length(same);
+            frr2(index)=sum(dif2<thresh)/length(dif2);
+            index=index+1;
+        end
+    end
+    index=find(abs(far1-frr1)==min(abs(far1-frr1)));
+    threshed_1=lowthresh+(index-1)*(highthresh1-lowthresh)/(err_length-1);
+    far1_mid=mean(far1(index));
+    frr1_mid=mean(frr1(index));
+    if length(dif2)>1
+        index=find(abs(far2-frr2)==min(abs(far2-frr2)));
+        threshed_2=lowthresh+mean((index-1)*(highthresh2-lowthresh)/(err_length-1));
+        far2_mid=far2(index);
+        frr2_mid=frr2(index);
+    end
+end
+end
+
+
+
+
+
+

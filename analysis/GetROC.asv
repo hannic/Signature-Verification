@@ -1,0 +1,121 @@
+
+function [far1 frr1 far2 frr2 far1_mid frr1_mid far2_mid frr2_mid]=GetROC(dir,data_number,data_type,show_im,roc_type)
+
+line_type={'-' '--' ':' '-.'};
+color_type={'r' 'g' 'b' 'c' 'm' 'y' 'k'};
+marker_type={'+' 'o' '*' '.' 'x' 's' 'd' '^' 'v' '<' '>' 'p' 'h'};
+type=cell(length(line_type)*length(color_type)*length(marker_type));
+ind=1;
+for ind1=1:length(line_type)
+    for ind2=1:length(color_type)
+        for ind3=1:length(marker_type)
+            type(ind)={[cell2mat(line_type(ind1)) cell2mat(color_type(ind2)) cell2mat(marker_type(ind3))]};
+            ind=ind+1;
+        end
+    end
+end
+
+
+cd(dir)
+
+far1=zeros(data_number,100);
+frr1=far1;
+far2=far1;
+frr2=far1;
+
+far1_mid=zeros(data_number,1);
+frr1_mid=zeros(data_number,1);
+threshed1=zeros(data_number,1);
+
+far2_mid=zeros(data_number,1);
+frr2_mid=zeros(data_number,1);
+threshed2=zeros(data_number,1);
+
+% for i=2:data_number
+if data_type==2
+    %         [far1(i-1,:)  frr1(i-1,:) far1_mid(i-1,1) frr1_mid(i-1,1) threshed1(i-1,1)...
+    %             far2(i-1,:) frr2(i-1,:) far2_mid(i-1,1) frr2_mid(i-1,1) ...
+    %             threshed2(i-1,1)]=GetError(pwd,i,100,'nopca',data_number);
+elseif data_type==1 && roc_type==1
+    [far1(1:end-1,:)  frr1(1:end-1,:) far1_mid(1:end-1) frr1_mid(1:end-1) ]=GetError(pwd,data_number,100,'nopca',data_number,'all');
+    elseif data_type==1 && roc_type==2
+    [far1(1:end-1,:)  frr1(1:end-1,:) far1_mid(1:end-1) frr1_mid(1:end-1) ]=GetError(pwd,data_number,100,'nopca',data_number,'single');
+end
+% end
+if data_type==2
+    %     [far1(data_number,:) frr1(data_number,:) far1_mid(data_number,1) ...
+    %         frr1_mid(data_number,1) threshed1(data_number,1) far2(data_number,:) ...
+    %         frr2(data_number,:) far2_mid(data_number,1) frr2_mid(data_number,1) ...
+    %         threshed2(data_number,1)]=GetError(pwd,0,100,'pca',data_number,2,data_number);
+elseif data_type==1 && roc_type==1
+    [far1(data_number,:) frr1(data_number,:) far1_mid(data_number,1) frr1_mid(data_number,1)]=GetError(pwd,0,100,'pca',data_number,'all',2,data_number);
+end
+if show_im==1
+    h=figure;
+    subplot(2,2,1);
+    % plot(far1(1,:),frr1(1,:),'r',far1(2,:),frr1(2,:),'g',far1(3,:),frr1(3,:),'b',...
+    %     far1(data_number,:),frr1(data_number,:),'k');
+    hold on
+    for i=1:data_number
+        plot(far1(i,:),frr1(i,:),cell2mat(type(i)));
+    end
+    xlim([0 0.1])
+    ylim([0 0.1])
+    if data_type==2
+        legend('mmin','mmax','template','pressure','pca');
+    elseif data_type==1
+        legend('mmin','mmax','template','pca');
+    end
+    grid on
+    xlabel('FAR');
+    ylabel('FRR');
+    title('1.1-0.1')
+    tempmid=(far1_mid+frr1_mid)/2;
+    
+    %     subplot(2,2,2);plot(1:length(far1_mid),far1_mid,1:length(frr1_mid),frr1_mid);
+    subplot(2,2,2);
+    plot(tempmid,'*');
+    %     bar(1:length(tempmid),tempmid);
+    %     for i=1:length(far1_mid)
+    %         text(i,far1_mid(i),char(vpa(far1_mid(i),3)),'VerticalAlignment','top')
+    %         text(i,frr1_mid(i),char(vpa(frr1_mid(i),3)),'VerticalAlignment','bottom');
+    %         text(i,tempmid(i),char(vpa(tempmid(i),3)),'VerticalAlignment','bottom');
+    %     end b
+    
+    ylim([0 1]);
+    grid on;
+    %     if data_type==2
+    %         set(gca,'XTickLabel',{'mmin','mmax','template','presure','pca'});
+    %     elseif data_type==1
+    %         set(gca,'XTickLabel',{'mmin','mmax','template','pca'});
+    %     end
+    if data_type==2
+        subplot(2,2,3);
+        % plot(far2(1,:),frr2(1,:),'r',far2(2,:),frr2(2,:),'g',far2(3,:),frr2(3,:),'b',...
+        %     far2(data_number,:),frr2(data_number,:),'k');
+        hold on
+        for i=1:data_number
+            plot(far1(i,:),frr1(i,:),cell2mat(type(i)));
+        end
+        legend('mmin','mmax','template','pressure','pca');
+        grid on;
+        xlabel('FAR');
+        ylabel('FRR');
+        title('1.1-0.2');
+        
+        subplot(2,2,4);
+        plot(1:length(far2_mid),far2_mid,1:length(frr2_mid),frr2_mid);
+        for i=1:length(far2_mid)
+            text(i,far2_mid(i),char(vpa(far2_mid(i),data_number)),'VerticalAlignment','top')
+            text(i,frr2_mid(i),char(vpa(frr2_mid(i),data_number)),'VerticalAlignment','bottom');
+        end
+        ylim([0 1])
+        grid on;
+        set(gca,'XTickLabel',{'mmin','mmax','template','pressure','pca'});
+    end
+    % print(gcf,'-dpng','1.png');
+    saveas(h,'1.png','png')
+    
+end
+end
+
